@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Light Runner — Arcade</title>
+<style>
+:root{color-scheme:dark;--navy:#07132f;--blue:#123f9c;--gold:#ffd447;--white:#f5f8ff;--muted:#a9b8d8}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at top,#183b83 0%,#081632 55%,#050b19 100%);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--white);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:16px}
+.app{width:min(100%,520px);margin:auto}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(145deg,#ffe778,#f6a900);display:grid;place-items:center;color:#10285c;font-size:25px;box-shadow:0 0 25px #ffce3c55}
+h1{font-size:20px;letter-spacing:1.5px;margin:0;font-weight:900}
+.sub{font-size:11px;color:var(--muted);letter-spacing:2px;margin-top:2px}
+.pill{border:1px solid #ffffff26;border-radius:999px;padding:8px 11px;font-size:12px;color:#ffe68a;background:#ffffff09}
+.panel{background:#0b1c3bdc;border:1px solid #8ba9ed30;border-radius:22px;padding:14px;box-shadow:0 18px 60px #0005}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.stat{background:#ffffff0a;border:1px solid #ffffff12;border-radius:13px;padding:9px 6px;text-align:center}
+.stat span{display:block;font-size:10px;letter-spacing:1.4px;color:var(--muted);margin-bottom:4px}
+.stat strong{font-size:20px;color:#fff}
+.stat strong.gold{color:var(--gold)}
+.stage{position:relative;border-radius:16px;overflow:hidden;border:1px solid #9abaff35;background:#07132b}
+canvas{display:block;width:100%;height:auto;aspect-ratio:360/480;touch-action:manipulation}
+.overlay{position:absolute;inset:0;background:#06112bd9;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:25px}
+.overlay.hidden{display:none}
+.orb{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#fff7bd 0%,#ffd33c 35%,#ffb40033 70%);box-shadow:0 0 42px #ffce3c80;font-size:36px;margin-bottom:17px}
+.overlay h2{font-size:27px;line-height:1.1;margin:0 0 9px}
+.overlay p{color:#c1cdea;font-size:13px;line-height:1.55;max-width:270px;margin:0 0 20px}
+button{font:inherit;cursor:pointer;border:0}
+.primary{background:linear-gradient(135deg,#ffe66c,#ffba22);color:#10234b;border-radius:13px;padding:13px 25px;font-weight:900;letter-spacing:.6px;box-shadow:0 5px 20px #ffc52b35}
+.controls{display:flex;gap:10px;margin-top:12px}
+.control{flex:1;border:1px solid #ffffff1e;background:#ffffff0a;color:#fff;border-radius:13px;padding:12px;font-size:13px;font-weight:750}
+.control span{display:block;font-size:10px;color:var(--muted);font-weight:500;margin-top:3px}
+.hint{text-align:center;color:#93a6cc;font-size:11px;margin:12px 4px 2px}
+.bottom{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:#8fa4ce;font-size:11px}
+.bottom b{color:#ffe078;letter-spacing:1px}
+@media(min-width:600px){.panel{padding:17px}canvas{max-height:560px}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <div class="brand"><div class="logo">✦</div><div><h1>LIGHT RUNNER</h1><div class="sub">RUN THE RACE · COLLECT THE LIGHT</div></div></div>
+    <div class="pill">ARCADE • 01</div>
+  </header>
+  <section class="panel">
+    <div class="stats">
+      <div class="stat"><span>SCORE</span><strong id="score">0000</strong></div>
+      <div class="stat"><span>LIGHTS</span><strong class="gold" id="lights">0</strong></div>
+      <div class="stat"><span>BEST RUN</span><strong id="best">0000</strong></div>
+    </div>
+    <div class="stage">
+      <canvas id="game" width="360" height="480" aria-label="Light Runner game"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="orb">✦</div>
+        <h2 id="overlayTitle">Ready to shine?</h2>
+        <p id="overlayText">Jump over the shadows, collect glowing lights, and see how far you can run.</p>
+        <button class="primary" id="start">▶ START RUN</button>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="control" id="jump">⬆ JUMP<span>Tap or press Space</span></button>
+      <button class="control" id="pause">Ⅱ PAUSE<span>Take a breath</span></button>
+    </div>
+    <div class="hint">TIP: Collect ✦ lights for bonus points. Don't hit the shadows!</div>
+  </section>
+  <footer class="bottom"><span><b>SHINE THE LIGHT</b> · COMMUNITY ARCADE</span><span id="status">READY WHEN YOU ARE</span></footer>
+</main>
+<script>
+(() => {
+  const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+  const scoreEl=document.getElementById('score'),lightsEl=document.getElementById('lights'),bestEl=document.getElementById('best');
+  const overlay=document.getElementById('overlay'),titleEl=document.getElementById('overlayTitle'),textEl=document.getElementById('overlayText');
+  const startBtn=document.getElementById('start'),pauseBtn=document.getElementById('pause'),statusEl=document.getElementById('status');
+  let running=false,paused=false,ended=false,frame=0,score=0,lights=0,speed=3.3,spawn=0,items=[],particles=[];
+  let best=0;try{best=Number(localStorage.getItem('lightRunnerBest')||0)}catch(e){}
+  bestEl.textContent=String(best).padStart(4,'0');
+  const player={x:76,y:365,w:27,h:36,vy:0,ground:365,jumping:false};
+  const stars=Array.from({length:48},()=>({x:Math.random()*360,y:Math.random()*480,r:Math.random()*1.5+.3,a:Math.random()*.6+.2}));
+  function reset(){frame=0;score=0;lights=0;speed=3.3;spawn=0;items=[];particles=[];player.y=player.ground;player.vy=0;player.jumping=false;running=true;paused=false;ended=false;overlay.classList.add('hidden');pauseBtn.innerHTML='Ⅱ PAUSE<span>Take a breath</span>';statusEl.textContent='RUNNING';updateStats()}
+  function updateStats(){scoreEl.textContent=String(Math.floor(score)).padStart(4,'0');lightsEl.textContent=lights;bestEl.textContent=String(best).padStart(4,'0')}
+  function jump(){if(!running||paused||ended)return;if(!player.jumping){player.vy=-10.8;player.jumping=true;burst(player.x+12,player.y+24,'#ffe06a',5)}}
+  function burst(x,y,color,n){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*4,vy:(Math.random()-.8)*4,life:22,color})}
+  function spawnItem(){let isLight=Math.random()<.58;items.push({x:380,y:isLight?280+Math.random()*60:player.ground+10,w:isLight?18:23,h:isLight?18:25,type:isLight?'light':'shadow',bob:Math.random()*6})}
+  function drawBackground(){
+    let g=ctx.createLinearGradient(0,0,0,480);g.addColorStop(0,'#102d67');g.addColorStop(.7,'#0a1c3d');g.addColorStop(1,'#061126');ctx.fillStyle=g;ctx.fillRect(0,0,360,480);
+    stars.forEach(s=>{ctx.globalAlpha=s.a*(.8+.2*Math.sin(frame*.04+s.x));ctx.fillStyle='#dbe9ff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill()});ctx.globalAlpha=1;
+    ctx.fillStyle='#142c59';ctx.beginPath();ctx.moveTo(0,320);for(let x=0;x<=360;x+=30)ctx.lineTo(x,300+Math.sin(x*.045+frame*.006)*15);ctx.lineTo(360,480);ctx.lineTo(0,480);ctx.fill();
+    ctx.fillStyle='#0a1730';ctx.fillRect(0,400,360,80);
+    ctx.strokeStyle='#4264a0';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,400);ctx.lineTo(360,400);ctx.stroke();
+    ctx.strokeStyle='#25416f';ctx.lineWidth=2;for(let x=-(frame*speed*.8)%42;x<360;x+=42){ctx.beginPath();ctx.moveTo(x,431);ctx.lineTo(x+20,431);ctx.stroke()}
+  }
+  function drawPlayer(){
+    let x=player.x,y=player.y;
+    ctx.save();ctx.shadowColor='#ffd447';ctx.shadowBlur=18;
+    ctx.fillStyle='#ffd447';ctx.beginPath();ctx.arc(x+13,y+8,8,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;ctx.fillStyle='#fff0a6';ctx.beginPath();ctx.arc(x+13,y+8,3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ffcc36';ctx.beginPath();ctx.roundRect(x+5,y+17,17,18,6);ctx.fill();
+    ctx.fillStyle='#eaf3ff';ctx.beginPath();ctx.arc(x+13,y+23,4,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#ffd447';ctx.lineWidth=4;ctx.lineCap='round';let leg=Math.sin(frame*.35)*4;
+    ctx.beginPath();ctx.moveTo(x+9,y+32);ctx.lineTo(x+7+leg,y+39);ctx.moveTo(x+18,y+32);ctx.lineTo(x+19-leg,y+39);ctx.stroke();
+    ctx.restore();
+  }
+  function drawItems(){
+    items.forEach(it=>{if(it.type==='light'){let y=it.y+Math.sin(frame*.12+it.bob)*5;ctx.save();ctx.translate(it.x+9,y+9);ctx.rotate(frame*.025);ctx.shadowColor='#ffdc52';ctx.shadowBlur=15;ctx.fillStyle='#ffe36c';ctx.beginPath();for(let i=0;i<10;i++){let a=i*Math.PI/5-Math.PI/2,r=i%2===0?10:4.5;ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r)}ctx.closePath();ctx.fill();ctx.restore()}else{ctx.save();ctx.shadowColor='#040814';ctx.shadowBlur=7;ctx.fillStyle='#6e83aa';ctx.beginPath();ctx.moveTo(it.x,it.y+it.h);ctx.lineTo(it.x+4,it.y+8);ctx.lineTo(it.x+11,it.y);ctx.lineTo(it.x+18,it.y+9);ctx.lineTo(it.x+it.w,it.y+it.h);ctx.closePath();ctx.fill();ctx.fillStyle='#a6b9db';ctx.fillRect(it.x+8,it.y+12,4,4);ctx.restore()}})
+  }
+  function drawParticles(){particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life/22);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,3,3)});ctx.globalAlpha=1}
+  function collide(a,b,pad=5){return a.x+pad<b.x+b.w&&a.x+a.w-pad>b.x&&a.y+pad<b.y+b.h&&a.y+a.h-pad>b.y}
+  function endGame(){running=false;ended=true;statusEl.textContent='RUN COMPLETE';if(score>best){best=Math.floor(score);try{localStorage.setItem('lightRunnerBest',best)}catch(e){}}
+    updateStats();titleEl.textContent='Keep shining!';textEl.textContent=`You scored ${Math.floor(score)} points and collected ${lights} lights. Can you beat your best run?`;startBtn.textContent='↻ RUN AGAIN';overlay.classList.remove('hidden')}
+  function update(){
+    if(!running||paused)return;
+    frame++;score+=.13*speed;speed=Math.min(6.8,3.3+frame/1100);
+    player.vy+=.48;player.y+=player.vy;if(player.y>=player.ground){player.y=player.ground;player.vy=0;player.jumping=false}
+    spawn++;if(spawn>Math.max(42,82-speed*5)){spawn=0;spawnItem()}
+    items.forEach(it=>it.x-=speed);
+    for(let i=items.length-1;i>=0;i--){let it=items[i];if(it.type==='light'&&collide({x:player.x,y:player.y,w:player.w,h:player.h},{x:it.x,y:it.y+Math.sin(frame*.12+it.bob)*5,w:it.w,h:it.h},-1)){lights++;score+=100;burst(it.x,it.y,'#ffe36c',12);items.splice(i,1);continue}
+      if(it.type==='shadow'&&collide(player,it,7)){endGame();break}if(it.x<-35)items.splice(i,1)}
+    particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--});particles=particles.filter(p=>p.life>0);updateStats()
+  }
+  function render(){drawBackground();drawItems();drawPlayer();drawParticles();if(paused&&running){ctx.fillStyle='#06112bbf';ctx.fillRect(0,0,360,480);ctx.fillStyle='#fff';ctx.font='900 27px system-ui';ctx.textAlign='center';ctx.fillText('PAUSED',180,230);ctx.font='14px system-ui';ctx.fillStyle='#c4d4f5';ctx.fillText('Tap resume when ready',180,258)}}
+  function loop(){update();render();requestAnimationFrame(loop)}
+  startBtn.addEventListener('click',reset);document.getElementById('jump').addEventListener('click',jump);
+  canvas.addEventListener('pointerdown',e=>{e.preventDefault();if(!running||ended){reset()}else jump()});
+  document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();jump()}if(e.code==='Enter'&&(!running||ended))reset();if(e.code==='Escape'&&running)togglePause()});
+  function togglePause(){if(!running)return;paused=!paused;pauseBtn.innerHTML=paused?'▶ RESUME<span>Back to the run</span>':'Ⅱ PAUSE<span>Take a breath</span>';statusEl.textContent=paused?'PAUSED':'RUNNING'}
+  pauseBtn.addEventListener('click',()=>{if(!running)return;togglePause()});
+  render();loop();
+})();
+</script>
+</body>
+</html>
